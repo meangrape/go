@@ -49,7 +49,8 @@ post '/links' do
   begin
     Link.create(
       :name => params[:name],
-      :url  => params[:url]
+      :url  => params[:url],
+      :created_at => DateTime.now
     )
     redirect '/'
   rescue Sequel::ValidationFailed,
@@ -85,11 +86,29 @@ get '/links/opensearch.xml' do
   erb :opensearch, :layout => false
 end
 
-get '/links/:id/remove' do
+get '/links/:id/delete' do
   link = Link.find(:id => params[:id])
-  halt 404 unless link
+  halt 400, 'link not found' unless link
   link.destroy
   redirect '/'
+end
+
+get '/links/:id/edit' do
+  link = Link.find(:id => params[:id])
+  halt 400, 'link not found' unless link
+  unless params[:action] == 'do_edit'
+    erb :edit, :locals => {:link => link}
+  else
+    halt 400, 'name or url must be specified' unless params[:name] || params[:url]
+    if params[:name]
+      link.name = params[:name]
+    end
+    if params[:url]
+      link.url = params[:url]
+    end
+    link.save
+    redirect '/'
+  end
 end
 
 get '/:name/?*?' do
@@ -157,24 +176,16 @@ __END__
         }
 
         .url {
-          width: 150px;
+          width: 300px;
+        }
+
+        .action_button {
+          width: 52px;
         }
 
         .actions {
           width: 50px;
           text-align: right;
-        }
-
-        .remove {
-          display: none;
-        }
-
-        .actions:hover .remove {
-          display: block;
-        }
-
-        .actions:hover .hits {
-          display: none;
         }
 
         hr {
@@ -217,9 +228,9 @@ __END__
 
 @@ index
   <form method="post" action="/links">
-    <input type="text" name="name" placeholder="Name" required>
-    <input type="url" name="url" placeholder="URL" required>
-    <button>Create</button>
+    <input type="text" class="name" name="name" placeholder="Name" required>
+    <input type="url" class="url" name="url" placeholder="URL" required>
+    <button class="action_button">Create</button>
   </form>
 
   <hr />
@@ -228,7 +239,7 @@ __END__
     <% @links.each do |link| %>
       <li>
         <section class="name">
-          <a href="/<%= link.name %>"><%= link.name %></a>
+          <a href="/<%= link.name %>" target="_blank"><%= link.name %></a>
         </section>
 
         <section class="url" title="<%= link.url %>"><%= link.url %></section>
@@ -236,8 +247,12 @@ __END__
         <section class="actions">
           <span class="hits">(<%= link.hits %>)</span>
 
-          <span class="remove">
-            <a href="/links/<%= link.id %>/remove" onclick="return confirm('Are you sure?');" title="remove">X</a>
+          <span class="edit">
+            <a href="/links/<%= link.id %>/edit" title="edit" alt="edit">e</a>
+          </span>
+
+          <span class="delete">
+            <a href="/links/<%= link.id %>/delete" title="delete" onclick="return confirm('Are you sure you want to delete this link?');" title="delete">d</a>
           </span>
         </section>
       </li>
@@ -245,6 +260,27 @@ __END__
   </ul>
 
   <% if @links.empty? %><p>No results</p><% end %>
+
+@@ edit
+  <form method="get" action="/links/<%= link.id %>/edit">
+    <input type="hidden" name="action" value="do_edit">
+    <input type="text" class="name" name="name" placeholder="Name" value="<%= link.name %>" required>
+    <input type="url" class="url" name="url" placeholder="URL" value="<%= link.url %>" required>
+    <button class="action_button">Edit</button>
+    </form>
+
+    <hr />
+    <section>
+      <button type="button" onclick="result=confirm('Are you sure you want to delete this link?'); if (result == true){ location = '/links/<%= link.id %>/delete'};">Delete</button>
+          <button type="button" onclick="location.href = '/';">Cancel</button>
+    </section>
+  </form>
+
+  <br>
+
+  <span>hits: <%= link.hits %> | created on: <%= link.created_at %></span>
+
+
 
 @@ opensearch
   <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
