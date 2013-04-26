@@ -38,7 +38,7 @@ end
 
 get '/' do
   @links = Link.order(:hits.desc).all
-  erb :index
+  erb :index, :locals => {:name => params[:name]}
 end
 
 get '/links' do
@@ -113,15 +113,19 @@ end
 
 get '/:name/?*?' do
   link = Link[:name => params[:name]]
-  halt 404 unless link
-  link.hit!
+  if link
+    link.hit!
 
-  parts = (params[:splat].first || '').split('/')
+    parts = (params[:splat].first || '').split('/')
 
-  url = link.url
-  url %= parts if parts.any?
+    url = link.url
+    url %= parts if parts.any?
 
-  redirect url
+    redirect url
+  else
+    # if the link doesn't exist, offer to make it
+    erb :missing, :locals => {:name => params[:name]}
+  end
 end
 
 # Views
@@ -226,9 +230,13 @@ __END__
     </body>
   </html>
 
+@@ missing
+  Link "go/<%= name %>" not found!<br><br>
+  <a href="/?name=<%= name %>">Create</a> it?
+
 @@ index
   <form method="post" action="/links">
-    <input type="text" class="name" name="name" placeholder="Name" required>
+    <input type="text" name="name" placeholder="Name" value="<%= name %>" required>
     <input type="url" class="url" name="url" placeholder="URL" required>
     <button class="action_button">Create</button>
   </form>
