@@ -3,6 +3,10 @@ require 'sequel'
 require 'sinatra/sequel'
 require 'json'
 
+# normally not needed, but allows app to be started by pow
+# see http://stackoverflow.com/questions/15639998/sinatra-via-rackup-does-not-like-inline-templates
+enable :inline_templates
+
 # Models & migrations
 
 migration 'create links' do
